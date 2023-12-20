@@ -1,2 +1,2 @@
-apikey='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'
-HUGAPIKEY='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'
+apikey=''
+HUGAPIKEY=''

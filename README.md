@@ -2,8 +2,7 @@
 ChatBot para busca em PDFs
 
 Imagem ou GIF relevante:
-
-![Imagem do ChatBot](print.png)
+![Tela Inicial](print.png)
 
 Descrição:
 

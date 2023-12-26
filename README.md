@@ -3,7 +3,7 @@ ChatBot para busca em PDFs
 
 Imagem ou GIF relevante:
 
-![Imagem do ChatBot](Captura de tela de 2023-12-26 18-54-10.png)
+![Imagem do ChatBot](print.png)
 
 Descrição:
 

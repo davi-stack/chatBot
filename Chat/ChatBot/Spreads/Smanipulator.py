@@ -541,166 +541,111 @@ class SheetManipulator:
         except HttpError as err:
             print(f"Um erro ocorreu: {err}")
             return None
-    # def conditional_formatting(self, spreadsheet_name, sheet_name, config_json):
-    #     spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
-
-    #     if not spreadsheet_id:
-    #         spreadsheet_id = self.create_spreadsheet(spreadsheet_name)
-
-    #     # Verificar se a aba existe
-    #     sheet_id = None
-    #     spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    #     sheets = spreadsheet.get('sheets', [])
-        
-    #     for sheet in sheets:
-    #         if sheet['properties']['title'] == sheet_name:
-    #             sheet_id = sheet['properties']['sheetId']
-    #             break
-
-    #     # Se a aba não existe, criar uma nova
-    #     if not sheet_id:
-    #         add_sheet_request = {'addSheet': {'properties': {'title': sheet_name}}}
-    #         self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': [add_sheet_request]}).execute()
-    #         spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    #         sheets = spreadsheet.get('sheets', [])
-            
-    #         for sheet in sheets:
-    #             if sheet['properties']['title'] == sheet_name:
-    #                 sheet_id = sheet['properties']['sheetId']
-    #                 break
-
-    #     my_range = {
-    #         "sheetId": sheet_id,
-    #         "startRowIndex": 1,
-    #         "endRowIndex": 11,
-    #         "startColumnIndex": 0,
-    #         "endColumnIndex": 4,
-    #     }
-
-    #     requests = []
-
-    #     for rule_config in config_json:
-    #         condition_type = rule_config["condition_type"]
-    #         user_entered_value = rule_config["user_entered_value"]
-    #         format_config = rule_config["format_config"]
-
-    #         rule = {
-    #             "ranges": [my_range],
-    #             "booleanRule": {
-    #                 "condition": {
-    #                     "type": condition_type,
-    #                     "values": [{"userEnteredValue": user_entered_value}],
-    #                 },
-    #                 "format": format_config,
-    #             },
-    #         }
-
-    #         add_rule_request = {
-    #             "addConditionalFormatRule": {"rule": rule, "index": 0}
-    #         }
-
-    #         requests.append(add_rule_request)
-
-    #     body = {"requests": requests}
-
+    # def color_cells(self, spreadsheet_id, range_name, color, sheet_name):
     #     try:
+    #         requests = []
+    #         sheet_id = self.get_sheet_id(spreadsheet_id, sheet_name)
+    #         if sheet_id is None:
+    #             print(f"Sheet '{sheet_name}' not found.")
+    #             return None
+    #         # Crie a regra de formatação de células
+    #         format_request = {
+    #             "repeatCell": {
+    #                 "range": {
+    #                     "sheetId": sheet_id,  # Substitua pelo ID da aba correto
+    #                     "startRowIndex": 1,
+    #                     "endRowIndex": 11,  # Ajuste os intervalos conforme necessário
+    #                     "startColumnIndex": 0,
+    #                     "endColumnIndex": 4
+    #                 },
+    #                 "cell": {
+    #                     "userEnteredFormat": {
+    #                         "backgroundColor": color
+    #                     }
+    #                 },
+    #                 "fields": "userEnteredFormat"
+    #             }
+    #         }
+    #         requests.append(format_request)
+
+    #         # Atualize a planilha com a formatação
+    #         body = {"requests": requests}
     #         response = (
     #             self.service.spreadsheets()
     #             .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
     #             .execute()
     #         )
-    #         print(f"{len(response.get('replies'))} cells updated.")
+    #         print(f"{(len(response.get('replies')))} cells updated.")
     #         return response
 
     #     except HttpError as error:
     #         print(f"An error occurred: {error}")
     #         return error
-
-    def create_or_edit_sheet_with_json_and_format(self, json_data):
+    def color_cells(self, spreadsheet_id, range_name, color, sheet_name):
         try:
-            # Extrair dados do JSON
-            json_data = json.loads(json_data)
-            spreadsheet_name = json_data.get('spreadsheet_name')
-            sheet_name = json_data.get('sheet_name')
-            data = json_data.get('data', [])
-
-            spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
-
-            # Se a planilha não existe, criar uma nova
-            if not spreadsheet_id:
-                spreadsheet_id = self.create_spreadsheet(spreadsheet_name)
-
-            # Verificar se a aba existe
-            sheet_id = None
-            spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-            sheets = spreadsheet.get('sheets', [])
-            for sheet in sheets:
-                if sheet['properties']['title'] == sheet_name:
-                    sheet_id = sheet['properties']['sheetId']
-                    break
-
-            # Se a aba não existe, criar uma nova
-            if not sheet_id:
-                add_sheet_request = {'addSheet': {'properties': {'title': sheet_name}}}
-                self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': [add_sheet_request]}).execute()
-                spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-                sheets = spreadsheet.get('sheets', [])
-                for sheet in sheets:
-                    if sheet['properties']['title'] == sheet_name:
-                        sheet_id = sheet['properties']['sheetId']
-                        break
-
-            # Editar a planilha com os dados fornecidos
             requests = []
+            sheet_id = self.get_sheet_id(spreadsheet_id, sheet_name)
+            if sheet_id is None:
+                print(f"Sheet '{sheet_name}' not found.")
+                return None
 
-            for item in data:
-                if 'range' in item and 'values' in item:
-                    range_ = item['range']
-                    values = item['values']
-                    cell_format = item.get('cell_format', {})
-                    formula = item.get('formula', '')
-                    merge_cells = item.get('merge_cells', False)
+            # Obtenha as coordenadas do intervalo
+            start_row, start_col, end_row, end_col = self.parse_range(range_name)
 
-                    # Adicionar valores à solicitação
-                    values_request = [{'userEnteredValue': {'stringValue': str(value)}} for value in values]
-                    requests.append({
-                        'updateCells': {
-                            'range': range_,
-                            'fields': 'userEnteredValue, userEnteredFormat',
-                            'rows': [{'values': values_request, 'format': {'textFormat': cell_format}}],
+            # Crie a regra de formatação de células
+            format_request = {
+                "repeatCell": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": start_row,
+                        "endRowIndex": end_row + 1,
+                        "startColumnIndex": start_col,
+                        "endColumnIndex": end_col + 1
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "backgroundColor": color
                         }
-                    })
+                    },
+                    "fields": "userEnteredFormat"
+                }
+            }
+            requests.append(format_request)
 
-                    # Adicionar fórmula se presente
-                    if formula:
-                        requests[-1]['updateCells']['rows'][0]['values'][0]['userEnteredValue'] = {'formulaValue': formula}
+            # Atualize a planilha com a formatação
+            body = {"requests": requests}
+            response = (
+                self.service.spreadsheets()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
+                .execute()
+            )
+            print(f"{(len(response.get('replies')))} cells updated.")
+            return response
 
-                    # Mesclar células se necessário
-                    if merge_cells:
-                        requests.append({
-                            'mergeCells': {
-                                'range': range_,
-                                'mergeType': 'MERGE_ALL'
-                            }
-                        })
+        except HttpError as error:
+            print(f"An error occurred: {error}")
+            return error
 
-            # Solicitação enviada
-            self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': requests}).execute()
+    def parse_range(self, range_name):
+        # Analise o nome do intervalo para obter as coordenadas
+        parts = range_name.split(":")
+        start_col = ord(parts[0][0].upper()) - ord('A')
+        start_row = int(parts[0][1:])
+        end_col = ord(parts[1][0].upper()) - ord('A')
+        end_row = int(parts[1][1:])
+        return start_row, start_col, end_row, end_col
 
-            # Obter o link da planilha editada
-            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-            print(f"Spreadsheet '{spreadsheet_name}', Sheet '{sheet_name}' edited successfully.")
-            print(f"Spreadsheet URL: {spreadsheet_url}")
+    def get_sheet_id(self, spreadsheet_id, sheet_name):
+        # Função para obter o ID da aba com base no nome da folha
+        spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get('sheets', [])
 
-            return spreadsheet_url
+        for sheet in sheets:
+            if sheet['properties']['title'] == sheet_name:
+                return sheet['properties']['sheetId']
 
-        except HttpError as err:
-            print(f"An error occurred: {err}")
-            return None
-   
-   
-   
-   
+        return None
+
     def create_spreadsheet(self, spreadsheet_name):
         try:
             spreadsheet_body = {'properties': {'title': spreadsheet_name}}
@@ -715,36 +660,19 @@ class SheetManipulator:
             print(f"Um erro ocorreu: {err}")
             return None
 
-    def parse_csv_string(self, csv_string):
         csv_file = StringIO(csv_string)
         csv_reader = csv.reader(csv_file)
         data_list = list(csv_reader)
 
         return data_list
-    # def get_spreadsheet_id(self, spreadsheet_name):
-    #     try:
-    #         results = self.service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
-    #         sheets = results.get('sheets', [])
-
-    #         for sheet in sheets:
-    #             if sheet['properties']['title'] == spreadsheet_name:
-    #                 return SAMPLE_SPREADSHEET_ID
-
-    #         print(f"A planilha '{spreadsheet_name}' não foi encontrada.")
-    #         return None
-
-    #     except HttpError as err:
-    #         print(f"Um erro ocorreu: {err}")
-    #         return None
-    
     def get_spreadsheet_id(self, spreadsheet_name):
         try:
-            spreadsheet_list = self.service.spreadsheets().list().execute()
-            spreadsheets = spreadsheet_list.get('files', [])
+            results = self.service.spreadsheets().get(spreadsheetId=SAMPLE_SPREADSHEET_ID).execute()
+            sheets = results.get('sheets', [])
 
-            for spreadsheet in spreadsheets:
-                if spreadsheet['name'] == spreadsheet_name:
-                    return spreadsheet['id']
+            for sheet in sheets:
+                if sheet['properties']['title'] == spreadsheet_name:
+                    return SAMPLE_SPREADSHEET_ID
 
             print(f"A planilha '{spreadsheet_name}' não foi encontrada.")
             return None
@@ -752,6 +680,22 @@ class SheetManipulator:
         except HttpError as err:
             print(f"Um erro ocorreu: {err}")
             return None
+    
+    # def get_spreadsheet_id(self, spreadsheet_name):
+    #     try:
+    #         spreadsheet_list = self.service.spreadsheets().get(spreadsheet_name)
+    #         spreadsheets = spreadsheet_list.get('files', [])
+
+    #         for spreadsheet in spreadsheets:
+    #             if spreadsheet['name'] == spreadsheet_name:
+    #                 return spreadsheet['id']
+
+    #         print(f"A planilha '{spreadsheet_name}' não foi encontrada.")
+    #         return None
+
+    #     except HttpError as err:
+    #         print(f"Um erro ocorreu: {err}")
+    #         return None
 
     def create_or_edit_sheet_with_json(self, json_data):
         try:
@@ -760,8 +704,11 @@ class SheetManipulator:
             spreadsheet_name = json_data.get('spreadsheet_name')
             sheet_name = json_data.get('sheet_name')
             data = json_data.get('data', [])
-
-            spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
+            try:
+                spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
+            except HttpError as err:
+                print(f"Um erro ocorreu: {err}")
+            colorizers = json_data.get('colorizers', [])
 
             # Se a planilha não existe, criar uma nova
             if not spreadsheet_id:
@@ -799,8 +746,16 @@ class SheetManipulator:
                         'fields': 'userEnteredValue'
                     }
                 })
+            
+
 
             self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': requests}).execute()
+
+            for colorizer in colorizers:
+                range_name = colorizer.get("range_name")
+                color = colorizer.get("color")
+                self.color_cells(spreadsheet_id, range_name, color,  sheet_name)
+
 
             # Obter o link da planilha editada
             spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
@@ -812,137 +767,7 @@ class SheetManipulator:
         except HttpError as err:
             print(f"An error occurred: {err}")
             return None
-    
-    # def create_or_edit_sheet_with_json(self, json_data):
-    #     try:
-    #         # Extrair dados do JSON
-    #         json_data = json.loads(json_data)
-    #         spreadsheet_name = json_data.get('spreadsheet_name')
-    #         sheet_name = json_data.get('sheet_name')
-    #         data = json_data.get('data', [])
 
-    #         spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
-
-    #         # Se a planilha não existe, criar uma nova
-    #         if not spreadsheet_id:
-    #             spreadsheet_id = self.create_spreadsheet(spreadsheet_name)
-
-    #         # Verificar se a aba existe
-    #         sheet_id = None
-    #         spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    #         sheets = spreadsheet.get('sheets', [])
-    #         for sheet in sheets:
-    #             if sheet['properties']['title'] == sheet_name:
-    #                 sheet_id = sheet['properties']['sheetId']
-    #                 break
-
-    #         # Se a aba não existe, criar uma nova
-    #         if not sheet_id:
-    #             add_sheet_request = {'addSheet': {'properties': {'title': sheet_name}}}
-    #             self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': [add_sheet_request]}).execute()
-    #             spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-    #             sheets = spreadsheet.get('sheets', [])
-    #             for sheet in sheets:
-    #                 if sheet['properties']['title'] == sheet_name:
-    #                     sheet_id = sheet['properties']['sheetId']
-    #                     break
-
-    #         # Editar a planilha com os dados fornecidos
-    #         requests = []
-
-    #         for item in data:
-    #             if 'range' in item:
-    #                 range_ = item['range']
-    #                 cell_format = item.get('cell_format', {})
-
-    #                 if 'cell_formula' in item:
-    #                     # Se houver uma fórmula, adicioná-la à solicitação
-    #                     requests.append({
-    #                         'updateCells': {
-    #                             'range': range_,
-    #                             'fields': 'userEnteredValue,note',
-    #                             'rows': [{'values': [{'userEnteredValue': {'formulaValue': item['cell_formula']}}]}],
-    #                             'cell': {'note': item.get('note', ''), 'userEnteredFormat': cell_format}
-    #                         }
-    #                     })
-    #                 else:
-    #                     # Se não houver uma fórmula, adicionar valores à solicitação
-    #                     values = [{'userEnteredValue': {'stringValue': str(value)}} for value in item.values() if value not in ('merge_cells', 'cell_format')]
-    #                     requests.append({
-    #                         'updateCells': {
-    #                             'range': range_,
-    #                             'fields': 'userEnteredValue,note',
-    #                             'rows': [{'values': values}],
-    #                             'cell': {'note': item.get('note', ''), 'userEnteredFormat': cell_format}
-    #                         }
-    #                     })
-
-    #                 # Mesclar células se necessário
-    #                 if item.get('merge_cells'):
-    #                     requests.append({
-    #                         'mergeCells': {
-    #                             'range': range_,
-    #                             'mergeType': 'MERGE_ALL'
-    #                         }
-    #                     })
-
-    #         # Solicitação enviada fora do loop
-    #         self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': requests}).execute()
-
-    #         # Obter o link da planilha editada
-    #         spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-    #         print(f"Spreadsheet '{spreadsheet_name}', Sheet '{sheet_name}' edited successfully.")
-    #         print(f"Spreadsheet URL: {spreadsheet_url}")
-
-    #         return spreadsheet_url
-
-    #     except HttpError as err:
-    #         print(f"An error occurred: {err}")
-    #         return None
-
-
-    
-
-     
-    # def edit_sheet_with_json(self, json_data):
-    #     try:
-    #         # Extract metadata from JSON
-    #         json_data = json.loads(json_data)
-    #         spreadsheet_name = json_data.get('spreadsheet_name', '')
-    #         sheet_name = json_data.get('sheet_name', '')
-
-    #         # If either spreadsheet_name or sheet_name is missing, print an error and return
-    #         if not spreadsheet_name or not sheet_name:
-    #             print("Error: Missing spreadsheet_name or sheet_name in JSON.")
-    #             return
-
-    #         # Get or create the spreadsheet
-    #         spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
-    #         if not spreadsheet_id:
-    #             spreadsheet_id = self.create_spreadsheet(spreadsheet_name)
-
-    #         # Check if the sheet exists, create a new one if not
-    #         sheet_id = self.get_or_create_sheet(spreadsheet_id, sheet_name)
-
-    #         # Extract sheet data from JSON
-    #         data = json_data.get('data', [])
-
-    #         # Update the sheet with the provided data
-    #         update_data_request = {
-    #             'updateCells': {
-    #                 'start': {'sheetId': sheet_id, 'rowIndex': 0, 'columnIndex': 0},
-    #                 'rows': [{'values': [{'userEnteredValue': {'stringValue': str(cell)}} for cell in row]} for row in data],
-    #                 'fields': 'userEnteredValue'
-    #             }
-    #         }
-    #         self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': [update_data_request]}).execute()
-
-    #         print(f"Spreadsheet '{spreadsheet_name}', Sheet '{sheet_name}' edited successfully.")
-
-    #     except HttpError as err:
-    #         print(f"An error occurred: {err}")
-
-   
 
     
     def edit_sheet(self, spreadsheet_name, sheet_name, data):
@@ -1073,95 +898,96 @@ class SheetManipulator:
     #     )
     #     print(f"{(len(response.get('replies')))} cells updated.")
     #     return response
+    def edit_sheet_from_json(self, model):
+        try:
+            spreadsheet_name = model.get("spreadsheet_name")
+            sheet_name = model.get("sheet_name")
+            data = model.get("data")
 
+            spreadsheet_id = self.get_spreadsheet_id(spreadsheet_name)
 
-def conditional_formatting(spreadsheet_id, creds):
-  """
-  Creates the batch_update the user has access to.
-  Load pre-authorized user credentials from the environment.
-  TODO(developer) - See https://developers.google.com/identity
-  for guides on implementing OAuth2 for the application.
-  """
-  
-  # pylint: disable=maybe-no-member
-  try:
-    service = build("sheets", "v4", credentials=creds)
+            # If the spreadsheet doesn't exist, create a new one
+            if not spreadsheet_id:
+                spreadsheet_id = self.create_spreadsheet(spreadsheet_name)
 
-    my_range = {
-        "sheetId": 0,
-        "startRowIndex": 1,
-        "endRowIndex": 11,
-        "startColumnIndex": 0,
-        "endColumnIndex": 4,
-    }
-    requests = [
-        {
-            "addConditionalFormatRule": {
-                "rule": {
-                    "ranges": [my_range],
-                    "booleanRule": {
-                        "condition": {
-                            "type": "CUSTOM_FORMULA",
-                            "values": [
-                                {
-                                    "userEnteredValue": (
-                                        "=GT($D2,median($D$2:$D$11))"
-                                    )
-                                }
-                            ],
-                        },
-                        "format": {
-                            "textFormat": {"foregroundColor": {"red": 0.8}}
-                        },
-                    },
-                },
-                "index": 0,
-            }
-        },
-        {
-            "addConditionalFormatRule": {
-                "rule": {
-                    "ranges": [my_range],
-                    "booleanRule": {
-                        "condition": {
-                            "type": "CUSTOM_FORMULA",
-                            "values": [
-                                {
-                                    "userEnteredValue": (
-                                        "=LT($D2,median($D$2:$D$11))"
-                                    )
-                                }
-                            ],
-                        },
-                        "format": {
-                            "backgroundColor": {
-                                "red": 1,
-                                "green": 0.4,
-                                "blue": 0.4,
+            # Check if the sheet exists
+            sheet_id = None
+            spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+            sheets = spreadsheet.get('sheets', [])
+            for sheet in sheets:
+                if sheet['properties']['title'] == sheet_name:
+                    sheet_id = sheet['properties']['sheetId']
+                    break
+
+            # If the sheet doesn't exist, create a new one
+            if not sheet_id:
+                add_sheet_request = {'addSheet': {'properties': {'title': sheet_name}}}
+                self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body={'requests': [add_sheet_request]}).execute()
+                spreadsheet = self.service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+                sheets = spreadsheet.get('sheets', [])
+                for sheet in sheets:
+                    if sheet['properties']['title'] == sheet_name:
+                        sheet_id = sheet['properties']['sheetId']
+                        break
+
+            # Edit the sheet with the provided data
+            update_requests = []
+
+            for item in data:
+                if 'range' in item:
+                    # Handle special operations like merging cells or setting cell format
+                    range_ = item.get('range')
+                    merge_cells = item.get('merge_cells', False)
+                    cell_format = item.get('cell_format', {})
+                    
+                    if merge_cells:
+                        merge_request = {
+                            'mergeCells': {
+                                'range': {'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': 4, 'startColumnIndex': 0, 'endColumnIndex': 3},
+                                'mergeType': 'MERGE_ALL'
                             }
-                        },
-                    },
-                },
-                "index": 0,
-            }
-        },
-    ]
-    body = {"requests": requests}
-    response = (
-        service.spreadsheets()
-        .batchUpdate(spreadsheetId=spreadsheet_id, body=body)
-        .execute()
-    )
-    print(f"{(len(response.get('replies')))} cells updated.")
-    return response
+                        }
+                        update_requests.append(merge_request)
 
-  except HttpError as error:
-    print(f"An error occurred: {error}")
-    return error
-def get_credentials():
+                    format_request = {
+                        'repeatCell': {
+                            'range': {'sheetId': sheet_id, 'startRowIndex': 1, 'endRowIndex': 4, 'startColumnIndex': 0, 'endColumnIndex': 3},
+                            'cell': {'userEnteredFormat': cell_format},
+                            'fields': 'userEnteredFormat'
+                        }
+                    }
+                    update_requests.append(format_request)
+
+                else:
+                    # Handle normal cell values
+                    row_index = int(item.get('row_index', 0))
+                    column_index = int(item.get('column_index', 0))
+                    values = [{'userEnteredValue': {'stringValue': str(value)}} for value in item.values()]
+                    
+                    update_data_request = {
+                        'updateCells': {
+                            'start': {'sheetId': sheet_id, 'rowIndex': row_index, 'columnIndex': column_index},
+                            'rows': [{'values': values}],
+                            'fields': 'userEnteredValue'
+                        }
+                    }
+                    update_requests.append(update_data_request)
+
+            # Batch update all requests
+            body = {'requests': update_requests}
+            self.service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+
+            print(f"Spreadsheet '{spreadsheet_name}', Sheet '{sheet_name}' edited successfully.")
+
+        except HttpError as err:
+            print(f"An error occurred: {err}")
+
+def main():
     creds = None
+
     if os.path.exists("token.json"):
         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -1170,130 +996,76 @@ def get_credentials():
             creds = flow.run_local_server(port=0)
         with open("token.json", "w") as token:
             token.write(creds.to_json())
-    return creds
-
-def main():
-    creds = get_credentials()
-    service = build("sheets", "v4", credentials=creds)
-
-    # ... (other code using the service object)
-
-    # Example conditional formatting usage
-    configuration = [
-        {
-            "condition_type": "CUSTOM_FORMULA",
-            "user_entered_value": "=AND(ISNUMBER(D2), D2 > MEDIAN(D$2:D$11))",
-            "format_config": {"textFormat": {"foregroundColor": {"red": 0.8}}},
-        },
-        {
-            "condition_type": "CUSTOM_FORMULA",
-            "user_entered_value": "=AND(ISNUMBER(D2), D2 < MEDIAN(D$2:D$11))",
-            "format_config": {"backgroundColor": {"red": 1, "green": 0.4, "blue": 0.4}},
-        },
-    ]
-
-    spreadsheet_id = "your_spreadsheet_id"  # Replace with actual ID
-    conditional_formatting(spreadsheet_id, creds)
-# def main():
-#     creds = None
-
-#     if os.path.exists("token.json"):
-#         creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-
-#     if not creds or not creds.valid:
-#         if creds and creds.expired and creds.refresh_token:
-#             creds.refresh(Request())
-#         else:
-#             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-#             creds = flow.run_local_server(port=0)
-#         with open("token.json", "w") as token:
-#             token.write(creds.to_json())
-
-#     try:
-#         service = build("sheets", "v4", credentials=creds)
-
-#         # sheet = service.spreadsheets()
-#         # result = (
-#         #     sheet.values()
-#         #     .get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME)
-#         #     .execute()
-#         # )
-#         # values = result.get("values", [])
-
-#         # if not values:
-#         #     print("No data found.")
-#         #     return
-
-#         sheet_manipulator = SheetManipulator()
-#         json_dat = """{
-#   "spreadsheet_name": "Test_Spreadsheet",
-#   "sheet_name": "Test_Sheet",
-#   "data": [
-#     {"range": "A1:C1", "values": ["Title A1", "Title B1", "Title C1"], "cell_format": {"textFormat": {"bold": true}}},
-#     {"range": "A2:C4", "values": [1, 2, 3, 4, 5, 6, 7, 8, 9], "merge_cells": true, "cell_format": {"backgroundColor": {"red": 1, "green": 0.8, "blue": 0.8}}},
-#     {"range": "B2:B4", "number_format": {"type": "PERCENT", "pattern": "#,##0.00%"}, "cell_format": {"backgroundColor": {"red": 0.8, "green": 1, "blue": 0.8}}},
-#     {"range": "C2:C4", "formula": "=SUM(A2:B2)", "cell_format": {"backgroundColor": {"red": 0.8, "green": 0.8, "blue": 1}}}
-#   ]
-# }"""
-#         #sheet_manipulator.create_or_edit_sheet_with_json_and_format(json_dat)
-#         # ... (similar refactoring for the main part)
-#          #     sheet_manipulator.batch_update_values(
-#          #     "1-tH9E0uHToCPePY5T6QQheW6jCvBcvPYUkf_KthnWGc",
-#          #     "A1:C2",
-#         #     "USER_ENTERED",
-#         #     [["F", "B"], ["C", "D"]],
-#         # )
-#         # Example JSON configuration
-#         configuration = configuration = [
-#     {
-#         "condition_type": "CUSTOM_FORMULA",
-#         "user_entered_value": "=AND(ISNUMBER(D2), D2 > MEDIAN(D$2:D$11))",
-#         "format_config": {"textFormat": {"foregroundColor": {"red": 0.8}}},
-#     },
-#     {
-#         "condition_type": "CUSTOM_FORMULA",
-#         "user_entered_value": "=AND(ISNUMBER(D2), D2 < MEDIAN(D$2:D$11))",
-#         "format_config": {
-#             "backgroundColor": {"red": 1, "green": 0.4, "blue": 0.4}
-#         },
-#     },
-# ]
-#         id = sheet_manipulator.create_spreadsheet("Teste")
-#         conditional_formatting(id, sheet_manipulator.creds)
-#         # sheet_manipulator.conditional_formatting(
-#         # "Your Spreadsheet Name", "Your Sheet Name", configuration)
-#     except HttpError as err:
-#         print(err)
-
-# if __name__ == "__main__":
-#     main()
-def main():
-    """
-    Tests the conditional_formatting function.
-    """
-
-    # Load credentials (replace with your authentication method)
-    creds = ...  # Replace with your credential loading logic
-
-    # Specify spreadsheet ID and sheet name
-    spreadsheet_id = "your_spreadsheet_id"  # Replace with actual ID
-    sheet_name = "Your Sheet Name"
 
     try:
-        # Call conditional_formatting function
-        response = conditional_formatting(spreadsheet_id, creds)
+        service = build("sheets", "v4", credentials=creds)
 
-        # Print success message or handle errors
-        if isinstance(response, dict):
-            print(f"Conditional formatting applied successfully. {len(response.get('replies'))} cells updated.")
-        else:
-            print(f"An error occurred: {response}")
+        # sheet = service.spreadsheets()
+        # result = (
+        #     sheet.values()
+        #     .get(spreadsheetId=SAMPLE_SPREADSHEET_ID, range=SAMPLE_RANGE_NAME)
+        #     .execute()
+        # )
+        # values = result.get("values", [])
 
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        # if not values:
+        #     print("No data found.")
+        #     return
+
+        sheet_manipulator = SheetManipulator()
+        
+        #sheet_manipulator.create_or_edit_sheet_with_json_and_format(json_dat)
+        # ... (similar refactoring for the main part)
+         #     sheet_manipulator.batch_update_values(
+         #     "1-tH9E0uHToCPePY5T6QQheW6jCvBcvPYUkf_KthnWGc",
+         #     "A1:C2",
+        #     "USER_ENTERED",
+        #     [["F", "B"], ["C", "D"]],
+        # )
+        # Example JSON configuration
+        # test_model = {
+        #     "spreadsheet_name": "Nome_da_Planilha",
+        #     "sheet_name": "Nome_da_Aba",
+        #     "data": [
+        #         {"A1": "Título da Célula A1", "B1": "Título da Célula B1", "C1": "Título da Célula C1"},
+        #         {"A2": 1, "B2": 2, "C2": 3},
+        #         # Adicionar mais dados conforme necessário
+        #     ]
+        # }
+        # sheet_manipulator.edit_sheet_from_json(test_model)
+        # Substitua pelos valores reais da sua planilha e dados
+        dados =  """
+{
+  "spreadsheet_name": "Tabela de Preços",
+  "sheet_name": "Preços",
+  "data": [
+    {"Produto": "Item A", "Preço": 10, "Quantidade": 5},
+    {"Produto": "Item B", "Preço": 15, "Quantidade": 3},
+    {"Produto": "Item C", "Preço": 20, "Quantidade": 2}
+  ],
+  "colorizers": [
+    {"range_name": "A1:C1", "color": {"red": 0.8, "green": 0.8, "blue": 0.4}},
+    {"range_name": "A2:C4", "color": {"red": 0.4, "green": 0.7, "blue": 0.4}},
+    {"range_name": "D2:D4", "color": {"red": 0.4, "green": 0.4, "blue": 0.8}},
+    {"range_name": "E2:E4", "color": {"red": 0.8, "green": 0.4, "blue": 0.8}},
+    {"range_name": "F2:F4", "color": {"red": 0.8, "green": 0.8, "blue": 0.8}}
+  ]
+}
+"""
+
+
+        # spreadsheet_id = sheet_manipulator.create_spreadsheet("planilha colorida2")
+        # range_name = "A1:C4"  # Intervalo a ser colorido
+        # color = {"red": 1, "green": 0.4, "blue": 0.4}
+        sheet_manipulator.create_or_edit_sheet_with_json(dados)
+        #sheet_manipulator.color_cells(spreadsheet_id, range_name, color)
+
+    except HttpError as err:
+        print(err)
 
 if __name__ == "__main__":
     main()
+
 
 
 

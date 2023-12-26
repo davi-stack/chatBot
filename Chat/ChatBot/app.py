@@ -77,7 +77,7 @@ def pesquisarProx(pergunta_do_usuario):
 
     query_vector = get_embedding(pergunta_do_usuario, model="text-embedding-ada-002")  # Get embedding using Hugging Face model
 
-    distances, indices = st.session_state.index.search(query_vector, 3)
+    distances, indices = st.session_state.index.search(query_vector, 8)
 
     most_similar_passages = [st.session_state.vectorstore.texts[idx] for idx in indices[0]]
 
@@ -95,7 +95,7 @@ def get_vectorstore(text_chunks):
 def get_conversation_chain(vectorstore):
     llm = ChatOpenAI()
     # llm = HuggingFaceHub(repo_id="google/flan-t5-xxl", model_kwargs={"temperature":0.5, "max_length":512})
-    
+    st.session_state.opcao = None
     memory = ConversationBufferMemory(
     memory_key='chat_history', return_messages=True)
     conversation_chain = ConversationalRetrievalChain.from_llm(
@@ -105,14 +105,32 @@ def get_conversation_chain(vectorstore):
     )
     return conversation_chain
 
+# def output(user_question):
+#     instruction = st.session_state.vectorstore.similarity_search_with_score(user_question)
+    
+#     if st.session_state.opcao == "Sheets":
+#         json = handle_sheets_output(user_question, instruction)
+#         link = st.session_state.sheetMani.create_or_edit_sheet_with_json(json)
+#         st.write("your google shets: \n")
+#         st.subheader("Output")
+#         st.write(f"Your Google Sheets: {link}")
+#         return ""
+#     else:
+#         return handle_text_output(user_question, instruction)
 def output(user_question):
-    instruction = f"{st.session_state.vectorstore.similarity_search_with_score(user_question)}"
-    if st.session_state.opcao != "Sheets":
-        return handle_sheets_output(user_question, instruction)
-    else:
-        #st.write("OPCAO 2")
-        return handle_text_output(user_question, instruction)
+    instruction = st.session_state.vectorstore.similarity_search_with_score(user_question)
 
+    if st.session_state.opcao == "Sheets":
+        print("Selected Sheets option")
+        json_data = handle_sheets_output(user_question, instruction)
+        link = st.session_state.sheetMani.create_or_edit_sheet_with_json(json_data)
+        st.write("your google sheets: \n")
+        st.subheader("Output")
+        st.write(f"Your Google Sheets: {link}")
+        return ""
+    else:
+        print("Selected Text option")
+        return handle_text_output(user_question, instruction)
 # def handle_sheets_output(user_question):
 #     instruction = """
 #     Write the response in JSON format, always in JSON [[]] format, as I will use it to create a table. This JSON must represent a table. Then answer any question in JSON{
@@ -123,16 +141,19 @@ def handle_sheets_output(user_question, instruction):
     client = OpenAI()
     model = """
 {
-  "spreadsheet_name": "Nome_da_Planilha",
-  "sheet_name": "Nome_da_Aba",
+  "spreadsheet_name": "Tabela de Preços",
+  "sheet_name": "Preços",
   "data": [
-    {"A1": "Título da Célula A1", "B1": "Título da Célula B1", "C1": "Título da Célula C1"},
-    {"A2": 1, "B2": 2, "C2": 3},
-    {"A3": 4, "B3": 5, "C3": 6},
-    {"A4": 7, "B4": 8, "C4": 9},
-    {"range": "A2:C4", "merge_cells": true, "cell_format": {...}},
-    {"range": "B2:B4", "cell_format": {"number_format": {"type": "PERCENT", "pattern": "#,##0.00%"}}},
-    {"range": "C2:C4", "cell_formula": "=SUM(A2:B2)"}
+    {"Produto": "Item A", "Preço": 10, "Quantidade": 5},
+    {"Produto": "Item B", "Preço": 15, "Quantidade": 3},
+    {"Produto": "Item C", "Preço": 20, "Quantidade": 2}
+  ],
+  "colorizers": [
+    {"range_name": "A1:C1", "color": {"red": 0.8, "green": 0.8, "blue": 0.4}},
+    {"range_name": "A2:C4", "color": {"red": 0.4, "green": 0.7, "blue": 0.4}},
+    {"range_name": "D2:D4", "color": {"red": 0.4, "green": 0.4, "blue": 0.8}},
+    {"range_name": "E2:E4", "color": {"red": 0.8, "green": 0.4, "blue": 0.8}},
+    {"range_name": "F2:F4", "color": {"red": 0.8, "green": 0.8, "blue": 0.8}}
   ]
 }
 """
@@ -140,7 +161,7 @@ def handle_sheets_output(user_question, instruction):
     model="gpt-3.5-turbo-1106",
     response_format={ "type": "json_object" },
     messages=[
-    {"role": "system", "content": f"{instruction}, Your is a table maker(googleSheets), you must color and edit the cells, ALWAYS IN THIS JSON MODE: {model}(this is very important) "},
+    {"role": "system", "content": f"{instruction}, Your is a table maker(googleSheets), you must color and edit the cells, make the biggest spreadsheet you can. ALWAYS IN THIS JSON MODE: {model}(this is very important) "},
     {"role": "user", "content": f"{user_question}"}
   ]
 )
@@ -170,44 +191,121 @@ def handle_userinput(user_question):
     
 
         
+def on_change_callback(valor_antigo, valor_novo):
+    # Verifique se o novo valor está na lista de opções aceitas
 
+    if valor_novo in st.session_state.opcao_aceitavel:
+        # Atualize o valor da variável `st.session_state.opcao`
+        st.session_state.opcao = valor_novo
+
+    return valor_novo
+
+# def main():
+#     st.session_state.opcao = None
+#     load_dotenv()
+#     os.environ['OPENAI_API_KEY'] = apikey
+#     st.session_state.embeddings = OpenAIEmbeddings()
+#     st.set_page_config(page_title="Chat with multiple PDFs",
+#                        page_icon=":books:")
+#     st.session_state.sheetMani = SheetManipulator()
+#     # Define the acceptable options
+#     st.session_state.opcao_aceitavel = ["Text", "Sheets", "excerpts"]
+    
+    
+    
+    
+#     if "conversation" not in st.session_state:
+#         st.session_state.conversation = None
+
+#     st.header("Chat with multiple PDFs, Sheets and Image :books: :sheets:")
+#     user_question = st.text_input("Ask a question about your documents:")
+#     if user_question:
+#         if st.session_state.vectorstore == None:
+#             st.write('please add a pdf to the database')
+#         else:
+#             instruction = st.session_state.vectorstore.similarity_search_with_score(user_question)
+#             if(st.session_state.opcao == "Sheets"):
+#                 print("this is a option")
+#                 st.write("Selected Sheets option")
+#                 json_data = handle_sheets_output(user_question, instruction)
+#                 link = st.session_state.sheetMani.create_or_edit_sheet_with_json(json_data)
+#                 st.write("your google sheets: \n")
+#                 st.subheader("Output")
+#                 st.write(f"Your Google Sheets: {link}")
+#             if(st.session_state.opcao == "Text"):
+#                 st.write(handle_text_output(user_question, instruction))
+#             if(st.session_state.opcao == "excerpts"):
+#                 st.write(instruction)
+            
+
+            
+#     with st.sidebar:
+#         st.session_state.opcao = st.radio("Output Option", ["Text", "Sheets", "excerpts"])
+#         st.subheader("Your documents")
+#         pdf_docs = st.file_uploader(
+#             "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
+#         # #os.environ['OPENAI_API_KEY'] = APIKEY
+#         os.environ['OPENAI_API_KEY'] = apikey
+
+#         if st.button("Process"):
+#             with st.spinner("Processing"):
+#                 # get pdf text
+#                 raw_text = get_pdf_text(pdf_docs)
+
+#                 # get the text chunks
+#                 st.session_state.text_chunks = get_text_chunks(raw_text)
+
+#                 # create vector store
+#                 st.session_state.vectorstore = get_vectorstore( st.session_state.text_chunks)
+
+#                 # create conversation chain
+#                 # st.session_state.conversation = get_conversation_chain(
+#                 #     st.session_state.vectorstore)
+#                 #st.session_state.index = faiss.IndexFlatL2(st.session_state.vectorstore)
+#                 # st.write(st.session_state.vectorstore)
+        
 
 def main():
-    st.session_state.opcao = None
     load_dotenv()
     os.environ['OPENAI_API_KEY'] = apikey
     st.session_state.embeddings = OpenAIEmbeddings()
     st.set_page_config(page_title="Chat with multiple PDFs",
                        page_icon=":books:")
-    sheetMani = SheetManipulator()
+    st.session_state.sheetMani = SheetManipulator()
+    # Define the acceptable options
+    st.session_state.opcao_aceitavel = ["Text", "Sheets", "excerpts"]
 
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
 
     st.header("Chat with multiple PDFs, Sheets and Image :books: :sheets:")
     user_question = st.text_input("Ask a question about your documents:")
+
+    with st.sidebar:
+        st.session_state.opcao = st.radio("Output Option", ["Sheets", "Text", "excerpts"])
+
     if user_question:
-        if st.session_state.vectorstore == None:
+        if st.session_state.vectorstore is None:
             st.write('please add a pdf to the database')
         else:
-            #rs = output_Sheets(user_question)
-            # rs = pesquisarProx(user_question)
-            # st.write(st.session_state.vectorstore.similarity_search_with_score(user_question))
-            json_response = output(user_question)
-            print(json_response)
-            link = sheetMani.create_or_edit_sheet_with_json(json_response)
-            st.write("your google shets: \n")
-            st.write(link)
-        
-
-            
+            instruction = st.session_state.vectorstore.similarity_search_with_score(user_question)
+            if st.session_state.opcao == "Sheets":
+                print("this is a option")
+                st.write("Selected Sheets option")
+                json_data = handle_sheets_output(user_question, instruction)
+                link = st.session_state.sheetMani.create_or_edit_sheet_with_json(json_data)
+                st.write("your google sheets: \n")
+                st.subheader("Output")
+                st.write(f"Your Google Sheets: {link}")
+            elif st.session_state.opcao == "Text":
+                st.write(handle_text_output(user_question, instruction))
+            elif st.session_state.opcao == "excerpts":
+                st.write(instruction)
 
     with st.sidebar:
         st.subheader("Your documents")
         pdf_docs = st.file_uploader(
             "Upload your PDFs here and click on 'Process'", accept_multiple_files=True)
-        # #os.environ['OPENAI_API_KEY'] = APIKEY
-        os.environ['OPENAI_API_KEY'] = apikey
 
         if st.button("Process"):
             with st.spinner("Processing"):
@@ -218,15 +316,7 @@ def main():
                 st.session_state.text_chunks = get_text_chunks(raw_text)
 
                 # create vector store
-                st.session_state.vectorstore = get_vectorstore( st.session_state.text_chunks)
-
-                # create conversation chain
-                # st.session_state.conversation = get_conversation_chain(
-                #     st.session_state.vectorstore)
-                #st.session_state.index = faiss.IndexFlatL2(st.session_state.vectorstore)
-                st.write(st.session_state.vectorstore)
-        st.session_state.opcao = st.selectbox("OUTPUT: ", ["Text", "Sheets"])
-
+                st.session_state.vectorstore = get_vectorstore(st.session_state.text_chunks)
 
 if __name__ == '__main__':
     main()
